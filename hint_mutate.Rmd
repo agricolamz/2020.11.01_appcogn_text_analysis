@@ -1,0 +1,15 @@
+Функция `mutate()` позволяет создавать новые переменные в датасете:
+
+```{r}
+iris %>% 
+  mutate(new_var = Petal.Length+Petal.Width)
+```
+
+В комбинации с функцией `group_by()` позовляет сохранить какую-то описательную статистику как отдельную колонку (сравни с `summarise()`):
+
+```{r}
+iris %>% 
+  group_by(Species) %>% 
+  mutate(slmn = mean(Sepal.Length), 
+         swmd = median(Sepal.Width))
+```

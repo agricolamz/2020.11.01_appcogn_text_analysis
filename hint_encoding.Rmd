@@ -1,0 +1,14 @@
+Ошибка с кодировкой бывает нескольких типов:
+  
+* у вас что-то не печатается в консоли
+* у вас что-то не печатается в `html`-вьювере (после команды `View()`)
+* обе
+
+Лечение всегда находится, но оно частное для разных операционных систем
+
+```{r hint_encoding, eval = FALSE}
+Sys.setlocale("LC_ALL","Russian") # windows
+Sys.setlocale("LC_ALL", "ru_RU") # macOS, linux
+Sys.setlocale("LC_ALL", "ru_RU.UTF-8") # linux
+Sys.setlocale("LC_ALL", "ru_RU.utf8") # linux
+```

@@ -4,9 +4,10 @@ author: "Г. Мороз"
 date: |
       | 1 ноября 2020
       |
-      | материалы доступны онлайн: 
+      | материалы доступны онлайн: tinyurl.com/y6snkqgh 
 output: 
   html_document:
+    number_sections: true
     theme: spacelab
     highlight: pygments
     toc: yes
@@ -20,11 +21,258 @@ editor_options:
   chunk_output_type: console
 ---
 
+<style>
+box {
+  background-color: "#b1d3f5";
+  width: auto;
+}
+</style>
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=9)
 ```
+
+# Введение
+## `tidyverse`
 
 ```{r, message=FALSE}
 library(tidyverse)
 ```
 
+Я ожидаю, что вы знакомы со следующими функциями из `tidyverse`
+
+* `%>%`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_pipe.Rmd"}
+```
+
+</details>
+
+* `filter()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_filter.Rmd"}
+```
+
+</details>
+
+* `arrange()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_arrange.Rmd"}
+```
+
+</details>
+
+* `select()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_select.Rmd"}
+```
+
+</details>
+
+
+* `distinct()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_distinct.Rmd"}
+```
+
+</details>
+
+* `group_by() %>% summarise()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_summarise.Rmd"}
+```
+
+</details>
+
+* `mutate()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_mutate.Rmd"}
+```
+
+</details>
+
+* `count()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_count.Rmd"}
+```
+
+</details>
+
+
+* `top_n()`
+
+<details>
+<summary>Подробнее</summary>
+
+```{r, child= "hint_top_n.Rmd"}
+```
+
+</details>
+
+* `ggplot()`
+* `read_csv()`
+
+## Работа со строками
+
+В `tidyverse` входит пакет `stringr`, который позволяет работать со строками, мы посмотрим несколько функций, которые будут нам сегодня полезны:
+
+* `str_length()`
+```{r}
+starwars %>% 
+  mutate(name_length = str_length(name)) %>% 
+  select(name, name_length)
+```
+
+* `str_detect()`
+
+```{r}
+starwars %>% 
+  filter(str_detect(name, "-")) %>% 
+  select(name)
+
+starwars %>% 
+  filter(str_detect(name, "(Luke)|(Darth)")) %>% 
+  select(name)
+
+starwars %>% 
+  filter(str_detect(name, "\\d")) %>% 
+  select(name)
+```
+
+Подробнее смотрите [материалы с мастерской АнДана на Летней Школе](https://agricolamz.github.io/2017_ANDAN_course/1_strings.html).
+
+# Где взять тексты?
+## Загрузить
+
+В пакете `readr` (входит в `tidyverse`) для чтения текста есть функция `read_lines()`. В качестве первой переменной может выступать путь к файлу на компьютере или интернет ссылка:
+
+```{r}
+t <- read_lines("https://raw.githubusercontent.com/agricolamz/2020.11.01_appcogn_text_analysis/master/data/Chang.txt")
+head(t)
+```
+
+Тексты хранятся в интернете по разному. Часто бывает так, что текст дигитализировали так, как он напечатан, так что в результате каждая строка в печатной книжке соответствует строке в текстовом файле (так, например, в нашем примере). Такой файл следует склеить воедино, используя пробел в качестве разделителя:
+
+```{r}
+t2 <- str_c(t, collapse = " ")
+length(t2)
+str_length(t2)
+```
+
+При таком слиянии, стоит проверить, не было ли в анализируемом тексте знаков переноса, иначе они сольются неправильно:
+
+```{r}
+str_c(c("... она запо-", "лучила ..."), collapse = " ")
+```
+
+<details>
+<summary>Проблемы с кодировкой</summary>
+
+```{r, child = "hint_encoding.Rmd"}
+```
+
+</details>
+
+## `gutenbergr`
+
+Пакет `gutenbergr` является API для очень старого [проекта Gutenberg](http://www.gutenberg.org/).
+
+```{r}
+library(gutenbergr)
+```
+
+Все самое важное в этом пакете хранится в датасете `gutenberg_metadata`
+
+```{r}
+str(gutenberg_metadata)
+```
+
+Например, сейчас мы можем понять, сколько книг на разных языках можно скачать из проекта:
+
+```{r}
+gutenberg_metadata %>% 
+  count(language, sort = TRUE)
+```
+
+Как видно, в основном это тексты на английском. Сколько авторов в датасете?
+
+```{r}
+gutenberg_metadata %>% 
+  count(author, sort = TRUE)
+```
+
+Сколько произведений Джейн Остин (не перепутайте с другими Остин) есть в датасете?
+
+```{r}
+gutenberg_metadata %>% 
+  filter(author == "Austen, Jane") %>% 
+  distinct(gutenberg_id, title)
+```
+
+Давайте скачаем "Эмму":
+
+```{r download_emma, cache=TRUE}
+emma <- gutenberg_download(158)
+emma
+```
+
+Можно скачивать сразу несколько книг. Давайте добавим еще "Леди Сьюзен":
+
+```{r download_books, cache=TRUE}
+books <- gutenberg_download(c(158, 946), meta_fields = "title")
+books
+books %>% 
+  count(title)
+```
+
+Сколько уникальных заголовков из базы данных содержит "Sherlock Holmes"?
+
+```{r, echo=FALSE, results='asis'}
+library(checkdown)
+gutenberg_metadata %>% 
+  filter(str_detect(title, "Sherlock Holmes")) %>% 
+  distinct(title) %>% 
+  nrow() %>% 
+  check_question()
+```
+
+
+## Обкачать из интернета
+Cмотрите [материалы с мастерской АнДана на Летней Школе](https://agricolamz.github.io/2017_ANDAN_course/4_crawler.html).
+
+# Как анализировать тексты?
+## Частотный анализ
+## tf-idf
+## Предиктивный ввод текста
+## Анализ тональности
+# Что дальше?
+NLP имеет достаточно много областей применения и мы не покрыли достаточно много тем, так что если вам будет интересно, поищите следующие ключевые слова:
+
+* тематическое моделирование
+* векторное представление слов
+* извлечение именованных сущностей
+* определение авторства

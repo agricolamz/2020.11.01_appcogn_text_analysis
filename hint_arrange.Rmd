@@ -1,0 +1,7 @@
+Функция `arrange()` позволяет сортировать одну и более колонок:
+
+```{r}
+iris %>% 
+  arrange(Sepal.Width, Petal.Length)
+```
+
