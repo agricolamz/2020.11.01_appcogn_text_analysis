@@ -1,0 +1,30 @@
+---
+title: "Анализ текстов в R"
+author: "Г. Мороз"
+date: |
+      | 1 ноября 2020
+      |
+      | материалы доступны онлайн: 
+output: 
+  html_document:
+    theme: spacelab
+    highlight: pygments
+    toc: yes
+    toc_position: right
+    toc_depth: 3
+    toc_float: yes
+    smooth_scroll: no
+    code_folding: show
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=9)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
