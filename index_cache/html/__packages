@@ -9,3 +9,7 @@ dplyr
 stringr
 forcats
 gutenbergr
+checkdown
+tidytext
+stopwords
+udpipe

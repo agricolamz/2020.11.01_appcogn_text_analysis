@@ -266,9 +266,429 @@ Cмотрите [материалы с мастерской АнДана на Л
 
 # Как анализировать тексты?
 ## Частотный анализ
+
+### Библиотека `tidytext`
+Сейчас скачанные книги записаны в таблицу, где одна строка это один абзац. Хочется мочь посчитать слова. Для этого книги нужно привести в tidy формат и для этого написан пакет `tidytext` (онлайн книга доступна [здесь](https://www.tidytextmining.com/)). Основное "оружие" пакета `tidytext` функция `unnest_tokens()`, которая переводит текст в tidy формат. В аргумент `output` подается вектор с именем будущей переменной, а аргумент `input` принимает переменную с текстом.
+
+```{r}
+library(tidytext)
+books %>% 
+  unnest_tokens(output = "word", input = text)
+```
+
+Теперь можно посчитать самые частотные слова в обоих произведениях:
+
+```{r}
+books %>% 
+  unnest_tokens(output = "word", input = text) %>% 
+  count(title, word, sort = TRUE)
+```
+
+Ну... Это было ожидаемо. Нужно убрать стопслова. Английские стопслова встроены в пакет (переменная `stop_words`):
+
+```{r}
+books %>% 
+  unnest_tokens(word, text) %>% 
+  count(title, word, sort = TRUE) %>% 
+  anti_join(stop_words)
+```
+
+Постройте следующий график, на котором представлены самые частотные 20 слов каждого из произведений.
+
+```{r, echo = FALSE, message=FALSE}
+books %>% 
+  unnest_tokens(word, text) %>% 
+  count(title, word, sort = TRUE) %>% 
+  anti_join(stop_words) %>% 
+  group_by(title) %>% 
+  top_n(20) %>% 
+  ggplot(aes(n, word))+
+  geom_col()+
+  facet_wrap(~title, scale = "free")
+```
+
+### `reorder_within()`
+
+Как видно, на графике все не упорядочено, давайте начнем с такого примера:
+
+```{r}
+books %>% 
+  unnest_tokens(word, text) %>% 
+  count(word, sort = TRUE) %>% 
+  top_n(1:20) %>% 
+  ggplot(aes(n, word))+
+  geom_col()
+```
+
+Если мы работаем с одним фасетом, то все проблемы может решить функция `fct_reorder()`, которая упорядочивает на основании некоторой переменной:
+
+```{r}
+books %>% 
+  unnest_tokens(word, text) %>% 
+  count(word, sort = TRUE) %>% 
+  top_n(20) %>% 
+  mutate(word = fct_reorder(word, n)) %>% 
+  ggplot(aes(n, word))+
+  geom_col()
+```
+
+Однако, если мы применим это к нашим данным, то получится неупорядочено:
+
+```{r}
+books %>% 
+  unnest_tokens(word, text) %>% 
+  count(title, word, sort = TRUE) %>% 
+  group_by(title) %>% 
+  top_n(20) %>% 
+  ungroup() %>%
+  mutate(word = fct_reorder(word, n)) %>% 
+  ggplot(aes(n, word))+
+  geom_col()+
+  facet_wrap(~title, scales = "free")
+```
+
+В пакете `tidytext` есть функция `reorder_within()`, которая позволяет упорядочить нужным образом:
+```{r}
+books %>% 
+  unnest_tokens(word, text) %>% 
+  count(title, word, sort = TRUE) %>% 
+  group_by(title) %>% 
+  top_n(20) %>% 
+  ungroup() %>%
+  mutate(word = reorder_within(x = word, by = n, within = title)) %>% 
+  ggplot(aes(n, word))+
+  geom_col()+
+  facet_wrap(~title, scales = "free")
+```
+
+Чтобы избавиться от дополнительной подписи нужно использовать `scale_y_reordered()` или `scale_x_reordered()`:
+
+```{r}
+books %>% 
+  unnest_tokens(word, text) %>% 
+  count(title, word, sort = TRUE) %>% 
+  group_by(title) %>% 
+  top_n(20) %>% 
+  ungroup() %>%
+  mutate(word = reorder_within(x = word, by = n, within = title)) %>% 
+  ggplot(aes(n, word))+
+  geom_col()+
+  facet_wrap(~title, scales = "free")+
+  scale_y_reordered()
+```
+
+Функция `unnest_tokens()` позволяет работать не только со словами, но и, напрмиер, с биграммами:
+
+```{r}
+books %>% 
+  unnest_tokens(word, text, token = "ngrams", n = 2)
+```
+
+Поиск самых частотных слов --- не едиснственная задача, которую можно решать при работе с текстом. Иногда имеет смысл узнать распределение слов в произведении. Давайте посмотрим как распределены в романе "Эмма" фамилии главных героев:
+
+```{r}
+books %>% 
+  filter(title == "Emma") %>% 
+  unnest_tokens(word, text) %>% 
+  mutate(narrative_time = 1:n()) %>% 
+  filter(str_detect(word, "knightley$|woodhouse$|churchill$|fairfax$")) %>%  
+  ggplot()+
+      geom_vline(aes(xintercept = narrative_time))+
+  facet_wrap(~word, ncol = 1)
+```
+
+### Пакет `stopwords`
+
+Выше мы упомянули, что в пакет `tidytext` встроен список английских стопслов. Стопслова для других язков можно раздобыть списки для других языков, используя пакет `stopwords`. Вместо имени языка, функция принимает ISO код языыка:
+
+```{r}
+library(stopwords)
+stopwords("ru")
+```
+
+Пакет предоставляет несколько источников списков:
+```{r}
+stopwords_getsources()
+```
+
+Давайте посмотрем какие языки сейчас доступны:
+
+```{r}
+map(stopwords_getsources(), stopwords_getlanguages)
+```
+
+Мы видим, что есть несколько источников для русского языка:
+```{r}
+length(stopwords("ru", source = "snowball"))
+length(stopwords("ru", source = "stopwords-iso"))
+```
+
+## Пакет `udpipe`
+
+Пакет `udpipe` представляет лемматизацию, морфологический и синтаксический анализ разных языков. Туториал можно найти [здесь](https://bnosac.github.io/udpipe/docs/doc1.html), там же есть список доступных языков.
+
+```{r}
+library(udpipe)
+```
+
+Модели качаются очень долго.
+```{r download_en_model, cache=TRUE}
+enmodel <- udpipe_download_model(language = "english")
+```
+
+Теперь можно распарсить какое-нибудь предложение:
+```{r}
+udpipe("The want of Miss Taylor would be felt every hour of every day.", object = enmodel)
+```
+
+Скачаем русскую модель:
+```{r  download_ru_model, cache=TRUE}
+rumodel <- udpipe_download_model(language = "russian-syntagrus")
+```
+
+```{r}
+udpipe("Жила-была на свете крыса в морском порту Вальпараисо, на складе мяса и маиса, какао и вина.", object = rumodel)
+```
+
+После того, как модель скачана можно уже к ней обращаться просто по имени файла:
+
+```{r}
+udpipe("Жила-была на свете крыса в морском порту Вальпараисо, на складе мяса и маиса, какао и вина.", object = "russian-syntagrus-ud-2.5-191206.udpipe")
+```
+
+## Еще данные
+
+Для работы мы воспользуемся двумя датасетами:
+
+* Рассказы М. Зощенко
+
+```{r,message=FALSE}
+zo <- read_csv("https://raw.githubusercontent.com/agricolamz/2020.11.01_appcogn_text_analysis/master/data/zoshenko.csv")
+zo
+```
+
+* Курс начертательной геометрии под редакцией В.Гордона
+
+```{r,message=FALSE}
+geom <- read_csv("https://raw.githubusercontent.com/agricolamz/2020.11.01_appcogn_text_analysis/master/data/gordon_geometry.csv")
+```
+
+Для начала лемматизируем полуичвшиеся тексты:
+
+```{r udpipe, cache=TRUE}
+library(udpipe)
+rus <- udpipe_load_model("russian-syntagrus-ud-2.5-191206.udpipe")
+geom_tokenized <- udpipe(geom, object = rus)
+zo_tokenized <- udpipe(zo, object = rus)
+```
+
+Уберем стопслова и леммы, содержащие цифры и знаки препинания
+
+```{r}
+library(stopwords)
+sw <- tibble(lemma = stopwords(language = "ru"))
+
+geom_tokenized %>% 
+  bind_rows(zo_tokenized) %>% 
+  filter(!str_detect(lemma, "\\W|\\d")) %>% 
+  anti_join(sw) %>% 
+  select(doc_id, sentence_id, lemma) ->
+  all_texts
+all_texts
+```
+
+Используйте библиотеку `gutenbergr` и скачайте "Чувство и чувствительность"(Sense and Sensibility, gutenberg_id = 161)	и "Гордость и предубеждение" ("Pride and Prejudice", gutenberg_id = 1342). Приведите тексты к tidy формату и уберите стопслова (английские стопслова есть в переменной `stop_words` пакета `tidytext`).
+
+```{r, include=FALSE}
+library(gutenbergr)
+library(tidytext)
+austin <- gutenberg_download(c(161, 1342))
+
+austin %>% 
+  unnest_tokens("word", text) %>% 
+  anti_join(stop_words) ->
+  austin_form  
+
+austin_form %>% 
+  count(gutenberg_id) ->
+  answers
+```
+
+* Приведите, сколько получилось слов в романе "Чувство и чувствительность" после удаления стопслов:
+```{r, echo=FALSE, results="asis"}
+check_question(answers$n[1])
+```
+
+* Приведите, сколько получилось слов в романе "Гордость и предубеждение" после удаления стопслов:
+```{r, echo=FALSE, results="asis"}
+check_question(answers$n[2])
+```
+
 ## tf-idf
+
+tf-idf --- важная мера, которая позволяет выделять важные для текста слова.
+
+$$tf = \frac{количество\ употреблений\ единицы\ в\ тексте}{количество\ уникальных\ единиц\ в тексте}$$
+$$idf = log\left(\frac{количество\ документов\ в\ корпусе}{количество\ документов\ с\ исследуемой\ единицей}\right)$$
+$$TfIdf = tf \times idf$$
+
+```{r, fig.height=10, fig.width=14, message=FALSE}
+library(tidytext)
+all_texts %>% 
+  count(doc_id, lemma) %>% 
+  bind_tf_idf(lemma, doc_id, n) %>% 
+  arrange(tf_idf) %>% 
+  group_by(doc_id) %>% 
+  top_n(5) %>% 
+  ungroup() %>% 
+  mutate(lemma = reorder_within(lemma, tf_idf, doc_id)) %>% 
+  ggplot(aes(tf_idf, lemma))+
+  geom_col()+
+  facet_wrap(~doc_id, scales = "free")+
+  scale_y_reordered()
+```
+
+Давайте попробуем посчитать всего Зощенко одним корпусом:
+
+```{r}
+all_texts %>% 
+  mutate(doc_id = ifelse(doc_id != "gordon_geometry", "zoshenko", "gordon_geometry")) %>% 
+  count(doc_id, lemma) %>% 
+  bind_tf_idf(lemma, doc_id, n) %>% 
+  arrange(tf_idf) %>% 
+  group_by(doc_id) %>% 
+  top_n(20) %>% 
+  ungroup() %>% 
+  mutate(lemma = reorder_within(lemma, tf_idf, doc_id)) %>% 
+  ggplot(aes(tf_idf, lemma))+
+  geom_col()+
+  facet_wrap(~doc_id, scales = "free")+
+  scale_y_reordered()
+```
+
+```{block, type = "rmdtask"}
+Используя созданную ранее переменную с текстами Джейн Остин без стопслов, выделите по 20 слов, важных для каждого романа.
+```
+
+```{r, echo = FALSE, message=FALSE}
+austin_form %>% 
+  count(gutenberg_id, word) %>% 
+  bind_tf_idf(word, gutenberg_id, n) %>% 
+  arrange(tf_idf) %>% 
+  group_by(gutenberg_id) %>% 
+  top_n(20) %>% 
+  ungroup() %>% 
+  mutate(word = reorder_within(word, tf_idf, gutenberg_id)) %>% 
+  ggplot(aes(tf_idf, word))+
+  geom_col()+
+  facet_wrap(~gutenberg_id, scales = "free")+
+  scale_y_reordered()
+```
+
 ## Предиктивный ввод текста
+
+На прошлом занятии мы разобрались, что пакет `tidytext` позволяет делить не только на отдльные слова, но и смотреть на биграммы. Частотность биграмм можно использовать в подсказке слова, которую мы видим в наших телефонах:
+
+```{r, warning=FALSE}
+zo %>% 
+  unnest_tokens("bigram", text, token = "ngrams", n = 2) %>% 
+  separate(bigram, into = c("word_1", "word_2")) %>% 
+  count(word_1, word_2, sort = TRUE) ->
+  bigrams
+```
+
+Теперь у нас есть биграмы:
+
+```{r}
+bigrams %>% 
+  filter(word_1 == "однажды")
+
+bigrams %>% 
+  filter(word_1 == "днем")
+
+bigrams %>% 
+  filter(word_1 == "присела")
+
+bigrams %>% 
+  filter(word_1 == "ждет")
+
+bigrams %>% 
+  filter(word_1 == "а") %>% 
+  head()
+
+bigrams %>% 
+  filter(word_1 == "я") %>% 
+  head()
+
+bigrams %>% 
+  filter(word_1 == "говорю") %>% 
+  head()
+
+bigrams %>% 
+  filter(word_1 == "не") %>% 
+  head()
+
+bigrams %>% 
+  filter(word_1 == "могу") %>% 
+  head()
+```
+
+Вот мы и получили предложение "Однажды днем присела ждет, а я говорю: 'не могу'". На большом корпусе результаты будут лучше, но легко предсатвить, как сделать из этого рабочую функцию. Можно переиначить задачу и работать с символами, тогда это будет ближе к T9 на современных телефонах.
+
+
+```{r, include = FALSE}
+austin %>% 
+  unnest_tokens("bigram", text, token = "ngrams", n = 2) %>% 
+  separate(bigram, into = c("word_1", "word_2")) %>% 
+  count(word_1, word_2) ->
+  bigrams
+
+bigrams %>% 
+  filter(word_1 == "should") %>% 
+  top_n(6) %>% 
+  arrange(-n)
+```
+
+
+```{block, type = "rmdtask"}
+Используя тексты обоих романов создайте генератор текстов, основанный на биграммах. Какое трехсловное предложение получится, если выбирать самое частотную пару, и начать со слова *I*?
+```
+
+```{r, echo = FALSE, results='asis'}
+check_question(answer = "I am sure", options = c("I was there", "I am sure", "I should go"))
+```
+
 ## Анализ тональности
+
+* [Linis Crowd](http://linis-crowd.org/)
+    * лемма
+    * значение
+    * среднеквадратичное отклонение
+* [РуСентиЛекс](http://www.labinform.ru/pub/rusentilex/index.htm):
+    * слово или словосочетание,
+    * часть речи или синтаксический тип группы,
+    * слово или словосочетание в лемматизированной форме, 
+    * тональность: позитивная (positive), негативная(negative), нейтральная (neutral) или неопределеная оценка, зависит от контекста (positive/negative),
+    * источник: оценка (opinion), чувство (feeling), факт (fact),
+    * если тональность отличается для разных значений многозначного слова, то перечисляются все значения слова по тезаурусу РуТез и дается отсылка на сооветствующее понятие - имя понятия в кавычках.
+
+Мы будем использовать [датасет](https://raw.githubusercontent.com/agricolamz/2020_HSE_DPO/master/data/ru_sentiment_linis-crowd.csv), составленный на базе Linis Crowd
+
+```{r, fig.height=10, fig.width=14}
+ru_sentiments <- read_csv("https://raw.githubusercontent.com/agricolamz/2020_HSE_DPO/master/data/ru_sentiment_linis-crowd.csv")
+
+all_texts %>% 
+  group_by(doc_id) %>% 
+  left_join(ru_sentiments, by = c("lemma" = "words")) %>% 
+  mutate(value = ifelse(is.na(value), 0, value)) %>% 
+  group_by(doc_id, sentence_id) %>% 
+  summarise(value = sum(value)) %>% 
+  mutate(color = ifelse(value >= 0, "positive", "negative")) %>% 
+  ggplot(aes(sentence_id, value, fill = color))+
+  geom_col()+
+  facet_wrap(~doc_id, scales = "free")
+```
+
 # Что дальше?
 NLP имеет достаточно много областей применения и мы не покрыли достаточно много тем, так что если вам будет интересно, поищите следующие ключевые слова:
 
