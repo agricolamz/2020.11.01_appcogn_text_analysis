@@ -384,6 +384,8 @@ books %>%
   unnest_tokens(word, text, token = "ngrams", n = 2)
 ```
 
+### Распределение слов
+
 Поиск самых частотных слов --- не едиснственная задача, которую можно решать при работе с текстом. Иногда имеет смысл узнать распределение слов в произведении. Давайте посмотрим как распределены в романе "Эмма" фамилии главных героев:
 
 ```{r}
@@ -592,7 +594,7 @@ austin_form %>%
 ```{r, warning=FALSE}
 zo %>% 
   unnest_tokens("bigram", text, token = "ngrams", n = 2) %>% 
-  separate(bigram, into = c("word_1", "word_2")) %>% 
+  separate(bigram, into = c("word_1", "word_2"), sep = " ") %>% 
   count(word_1, word_2, sort = TRUE) ->
   bigrams
 ```
